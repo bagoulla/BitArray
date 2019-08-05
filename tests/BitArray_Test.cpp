@@ -7,11 +7,11 @@
 namespace {
 
 TEST(BasicUsage, Creation) {
-    size_t size(529), start_a(17), start_b(3), num(237);
+    size_t size(5290), start_a(17), start_b(3), num(2370);
     std::vector<short> testVec1(size), testVec2(size);
     BitArray testArray1(size), testArray2(size);
-    srand(7);
-    for (int i = 0; i < testVec1.size(); ++i) {
+    srand(8);
+    for (size_t i = 0; i < testVec1.size(); ++i) {
         testVec1[i] = rand()%2;
         testArray1[i] = testVec1[i];
         EXPECT_EQ(testVec1[i], testArray1[i]);
@@ -20,8 +20,9 @@ TEST(BasicUsage, Creation) {
         EXPECT_EQ(testVec2[i], testArray2[i]);
     }
 
+    std::cout << "Hello" << std::endl;
     uint64_t expected_value(0);
-    for (int i = 0; i < num; ++i) {
+    for (size_t i = 0; i < num; ++i) {
         expected_value += (testVec1[i+start_a] & testVec2[i+start_b]);
     }
 
