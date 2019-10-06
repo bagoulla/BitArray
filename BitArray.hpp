@@ -40,7 +40,7 @@ private:
 
 class BitArray {
 public:
-    BitArray(size_t len) : _size(len), _data(_size/8 + 1 + 7) {} // Very lazy, extra 7 bytes of zeros.
+    BitArray(size_t len) : _size(len), _data(_size >> 3 + 1 + 7) {} // Very lazy, extra 7 bytes of zeros.
     BitArray() : _size(0), _data(0) {}
     size_t size() { return _size; };
     
@@ -49,7 +49,7 @@ public:
      */
     bool operator [](size_t i) const    {
         assert(i < _size);
-        return _data[i/8] & (1 << (7 - i%8));
+        return _data[i >> 3] & (1 << (7 - i%8));
     }
 
     /**
@@ -57,7 +57,7 @@ public:
      */
     ProxyBit operator [](size_t i) {
         assert(i < _size);
-        return ProxyBit(_data[i/8], (7-i%8));
+        return ProxyBit(_data[i >> 3], (7-i%8));
     }
 
     /**
@@ -77,14 +77,14 @@ public:
         uint8_t * a_ptr = &pb_a._byte;
         uint8_t * b_ptr = &pb_b._byte;
 
-        for (size_t i = 0; len != 0; len -= (7*8), i+=7) {
+        for (size_t i = 0; len != 0; len -= (7<<3), i+=7) {
             uint64_t a_64t = htobe64(*(uint64_t *) &a_ptr[i]);
             a_64t = (a_64t << (7 - pb_a._pos));
 
             uint64_t b_64t = htobe64(*(uint64_t *) &b_ptr[i]);
             b_64t = (b_64t << (7 - pb_b._pos));
 
-            if (len < 7*8) {
+            if (len < 7<<3) {
                 a_64t &= (0xFFFFFFFFFFFFFFFF << (64 - len));
                 b_64t &= (0xFFFFFFFFFFFFFFFF << (64 - len));
                 accum += __builtin_popcountll(first_seven_mask & func(a_64t, b_64t));
