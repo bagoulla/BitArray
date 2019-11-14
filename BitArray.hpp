@@ -49,7 +49,7 @@ public:
      */
     bool operator [](size_t i) const    {
         assert(i < _size);
-        return _data[i >> 3] & (1 << (7 - i%8));
+        return _data[i >> 3] & (1 << (7 - i & 7));
     }
 
     /**
@@ -57,7 +57,7 @@ public:
      */
     ProxyBit operator [](size_t i) {
         assert(i < _size);
-        return ProxyBit(_data[i >> 3], (7-i%8));
+        return ProxyBit(_data[i >> 3], (7 - i & 7));
     }
 
     /**
