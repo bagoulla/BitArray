@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.1.0)
+project(BitArray)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -9,5 +10,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 enable_testing()
+find_package(GTest REQUIRED)
 project(bitarray)
 add_subdirectory(tests)
