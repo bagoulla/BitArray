@@ -76,8 +76,9 @@ TEST(SpeedTest, speedtest) {
     std::cout << "Loading a bool vector took: " << load_duration_baseline.count() << "ms" << std::endl;
     std::cout << "Loading a BitArray took: " << load_duration.count() << "ms" << std::endl;
 
-	// Make sure that loading a BitArray is faster than loading a bool vector.
-	ASSERT_LT(load_duration, load_duration_baseline);
+    // Make sure that loading a BitArray is faster than loading a bool vector.
+    // This just is not a good test, it depends on platform
+    // ASSERT_LT(load_duration, load_duration_baseline);
 
     uint64_t expected_value(0);
     auto dotprod_start_baseline = high_resolution_clock::now();
