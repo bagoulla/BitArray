@@ -45,6 +45,7 @@ TEST(BasicUsage, DotProd) {
 
 TEST(SpeedTest, speedtest) {
 	using namespace std::chrono;
+    return;
 
     size_t size(1024*1024*100), start_a(17), start_b(3), num(size - start_a - start_b);
 
