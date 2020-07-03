@@ -11,10 +11,10 @@ namespace {
 
 TEST_CASE("Testing creation") {
     BitArray testEmpty;
-    ASSERT_EQ(testEmpty.size(), 0);
+    CHECK(testEmpty.size() == 0);
 
     BitArray testNotEmpty(27);
-    ASSERT_EQ(testNotEmpty.size(), 27);
+    CHECK(testNotEmpty.size() == 27);
 
     for (size_t i = 0; i < testNotEmpty.size(); i++)
         CHECK(testNotEmpty[i] == 0);
