@@ -2,7 +2,12 @@
 #define BITARRAY_H
 
 #include <vector>
-#include <endian.h>
+#ifdef __APPLE__
+  #include <libkern/OSByteOrder.h>
+  #define htobe64(x) OSSwapHostToBigInt64(x)
+#else
+  #include <endian.h>
+#endif
 #include <assert.h>
 #include <functional>
 #include <stdint.h>
