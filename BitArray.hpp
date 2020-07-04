@@ -8,9 +8,15 @@
 #else
 #include <endian.h>
 #endif
-#include <functional>
 #include <cstdint>
-#include <string>
+#include <functional>
+#include <sstream>
+
+std::string IntToString(int a) {
+  std::ostringstream temp;
+  temp << a;
+  return temp.str();
+}
 
 class BitArray;
 
@@ -57,9 +63,9 @@ public:
    */
   bool operator[](size_t i) const {
     if (i >= _size) {
-      throw std::out_of_range(std::to_string(i) +
-                              " greater than or equal to size " +
-                              std::to_string(_size));
+      std::string err = IntToString(i) + " is greater than or equal to size " +
+                        IntToString(_size);
+      throw std::out_of_range(err);
     }
     return _data[i / 8] & (1 << (i & 7));
   }
@@ -69,9 +75,9 @@ public:
    */
   ProxyBit operator[](size_t i) {
     if (i >= _size) {
-      throw std::out_of_range(std::to_string(i) +
-                              " greater than or equal to size " +
-                              std::to_string(_size));
+      std::string err = IntToString(i) + " is greater than or equal to size " +
+                        IntToString(_size);
+      throw std::out_of_range(err);
     }
     return ProxyBit(_data[i / 8], (i & 7));
   }
