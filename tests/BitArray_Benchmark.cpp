@@ -2,7 +2,7 @@
 #include <iostream>
 #include <chrono> 
 #include "BitArray.hpp"
-#include "picobench.h"
+#include "picobench.hpp"
 
 using namespace std::chrono; 
 
