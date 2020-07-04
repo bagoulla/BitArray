@@ -1,6 +1,8 @@
 `BitArray`
 ==========
 
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md#pull-requests)
 ![C/C++ CI](https://github.com/sayguh/BitArray/workflows/C/C++%20CI/badge.svg)
 
 ## Usage
