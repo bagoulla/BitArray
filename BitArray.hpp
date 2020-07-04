@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <functional>
 #include <stdint.h>
+#include <string>
 
 class BitArray;
 
@@ -56,7 +57,11 @@ public:
    * This will return the value stored in a given index.
    */
   bool operator[](size_t i) const {
-    assert(i < _size);
+    if (i >= _size) {
+      throw std::out_of_range(std::to_string(i) +
+                              " greater than or equal to size " +
+                              std::to_string(_size));
+    }
     return _data[i / 8] & (1 << (i & 7));
   }
 
@@ -64,7 +69,11 @@ public:
    * This will return a proxy to the bit so that users can set it.
    */
   ProxyBit operator[](size_t i) {
-    assert(i < _size);
+    if (i >= _size) {
+      throw std::out_of_range(std::to_string(i) +
+                              " greater than or equal to size " +
+                              std::to_string(_size));
+    }
     return ProxyBit(_data[i / 8], (i & 7));
   }
 
