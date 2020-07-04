@@ -1,0 +1,30 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ${{ matrix.platform }}
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Clone repository
+      
+    - name: Build BitArray
+      uses: lukka/run-cmake@v2
+      with:
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+        cmakeListsTxtPath: '${{github.workspace}}/CMakeLists.txt'
+        useVcpkgToolchainFile: false
+        buildDirectory: '${{runner.workspace}}/build'
+
+    - name: Run tests
+      run: ctest --output-on-failure
