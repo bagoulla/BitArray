@@ -1,3 +1,5 @@
+<div style="text-align:center">
+
 `BitArray`
 ==========
 
@@ -5,7 +7,9 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md#pull-requests)
 ![C/C++ CI](https://github.com/sayguh/BitArray/workflows/C/C++%20CI/badge.svg)
 
-## Usage
+</div>
+
+## Example
 
 ```c++
 #include <cstdlib>
@@ -23,4 +27,27 @@ int main() {
   uint64_t my_value = BitArray::DotProd(testArray1[start_a], testArray2[start_b], num);
   return 0;
 }
+```
+
+## 🚴 Usage
+
+### 🐑 Use `git` to Clone this Repository
+
+```
+git clone https://github.com/sayguh/BitArray.git BitArray
+```
+
+### 🛠️ Build
+
+```
+mkdir -p build
+cd build
+cmake ../
+```
+
+### 🔬 Test
+
+```
+cd build
+ctest
 ```
