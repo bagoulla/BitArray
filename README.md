@@ -1,5 +1,3 @@
-<div style="text-align:center">
-
 `BitArray`
 ==========
 
@@ -7,7 +5,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md#pull-requests)
 ![C/C++ CI](https://github.com/sayguh/BitArray/workflows/C/C++%20CI/badge.svg)
 
-</div>
+Single header file implementation of a bit array.
 
 ## Example
 
@@ -29,7 +27,11 @@ int main() {
 }
 ```
 
-## 🚴 Usage
+## 🚴 Installation
+
+Download the header file from https://github.com/sayguh/BitArray/releases.
+
+## Contributing
 
 ### 🐑 Use `git` to Clone this Repository
 
