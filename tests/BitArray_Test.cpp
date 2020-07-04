@@ -6,9 +6,6 @@
 #include "BitArray.hpp"
 #include "doctest.h"
 
-
-namespace {
-
 TEST_CASE("Testing creation") {
     BitArray testEmpty;
     CHECK(testEmpty.size() == 0);
@@ -43,6 +40,3 @@ TEST_CASE("Testing DotProd") {
 
     CHECK(my_value == expected_value);
 }
-
-}  // namespace
-
