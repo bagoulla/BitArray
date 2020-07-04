@@ -4,7 +4,7 @@
 #include <vector>
 #include <chrono>
 #include "BitArray.hpp"
-#include "doctest.h"
+#include "doctest.hpp"
 
 TEST_CASE("Testing creation") {
     BitArray testEmpty;
