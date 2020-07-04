@@ -15,8 +15,8 @@ jobs:
         platform: [ubuntu-latest, macos-latest]
 
     steps:
-    - uses: actions/checkout@v2
     - name: Clone repository
+      uses: actions/checkout@v2
       
     - name: Build BitArray
       uses: lukka/run-cmake@v2
