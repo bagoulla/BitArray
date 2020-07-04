@@ -27,4 +27,5 @@ jobs:
         buildDirectory: '${{runner.workspace}}/build'
 
     - name: Run tests
+      working-directory: '${{runner.workspace}}/build'
       run: ctest --output-on-failure
