@@ -8,9 +8,8 @@
 #else
 #include <endian.h>
 #endif
-#include <assert.h>
 #include <functional>
-#include <stdint.h>
+#include <cstdint>
 #include <string>
 
 class BitArray;
