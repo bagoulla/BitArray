@@ -31,7 +31,7 @@ int main() {
 
 Download the header file from https://github.com/sayguh/BitArray/releases.
 
-## Contributing
+## 🚀 Contributing
 
 ### 🐑 Use `git` to Clone this Repository
 
