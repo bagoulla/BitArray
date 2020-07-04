@@ -135,8 +135,6 @@ public:
             // Shift so it is also aligned
             b_bitVec = _mm_srli_epi64(b_bitVec, pb_b._pos);
 
-            // bit wise and them
-            a_bitVec = _mm_and_si128 (a_bitVec, b_bitVec);
 
             if (len < 2*7*8) {
                 // Get rid of the stuff at the end by shifting it away.
@@ -146,10 +144,12 @@ public:
                 // Bitwise and what is left.
                 a_bitVec = _mm_and_si128 (a_bitVec, b_bitVec);
                 _mm_storeu_si128 ((__m128i *)&tmp, a_bitVec);
-                accum += _mm_popcnt_u64(tmp.lower64);
-                accum += _mm_popcnt_u64(tmp.upper64);
+                accum += (_mm_popcnt_u64(tmp.lower64) + _mm_popcnt_u64(tmp.upper64));
                 break;
             }
+            
+            // bit wise and them
+            a_bitVec = _mm_and_si128 (a_bitVec, b_bitVec);
 
             // Pull out the bits for all but the last byte.
             a_bitVec = _mm_slli_epi64(a_bitVec, 8);

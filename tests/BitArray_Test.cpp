@@ -93,11 +93,11 @@ TEST(SpeedTest, speedtest) {
     auto dotprod_stop = high_resolution_clock::now();
     auto dotprod_duration = duration_cast<milliseconds>(dotprod_stop - dotprod_start);
 
-    ASSERT_EQ(my_value, expected_value);
 
     std::cout << "DotProd a bool vector took: " << dotprod_duration_baseline.count() << "ms" << std::endl;
     std::cout << "DotProd a BitArray took: " << dotprod_duration.count() << "ms" << std::endl;
 
+    ASSERT_EQ(my_value, expected_value);
 	ASSERT_LT(dotprod_duration, dotprod_duration_baseline);
 }
 }  // namespace
