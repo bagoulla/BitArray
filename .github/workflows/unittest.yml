@@ -42,7 +42,7 @@ jobs:
         cmakeListsTxtPath: '${{github.workspace}}/CMakeLists.txt'
         useVcpkgToolchainFile: false
         buildDirectory: '${{runner.workspace}}/build'
-        cmakeAppendedArgs: '-DBUILD_TESTS=on'
+        cmakeAppendedArgs: '-DBUILD_BENCHMARKS=on'
 
     - name: Run benchmarks
       working-directory: '${{runner.workspace}}/build'
