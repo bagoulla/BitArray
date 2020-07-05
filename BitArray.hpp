@@ -8,6 +8,7 @@
 #else
 #include <endian.h>
 #endif
+#include <assert.h>
 #include <functional>
 #include <cstdint>
 
