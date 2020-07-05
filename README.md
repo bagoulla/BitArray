@@ -39,6 +39,9 @@ Download the header file from https://github.com/sayguh/BitArray/releases.
 git clone https://github.com/sayguh/BitArray.git BitArray
 ```
 
+To check code coverage, make sure you also have
+[lcov](http://ltp.sourceforge.net/coverage/lcov.php) installed.
+
 ### 🛠️ Build
 
 ```
