@@ -25,6 +25,7 @@ jobs:
         cmakeListsTxtPath: '${{github.workspace}}/CMakeLists.txt'
         useVcpkgToolchainFile: false
         buildDirectory: '${{runner.workspace}}/build'
+        cmakeAppendedArgs: '-DBUILD_TESTS=on'
 
     - name: Run tests
       working-directory: '${{runner.workspace}}/build'
