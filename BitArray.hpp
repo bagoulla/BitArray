@@ -1,13 +1,17 @@
 #ifndef BITARRAY_H
 #define BITARRAY_H
 
-#include <assert.h>
+#include <vector>
+#ifdef __APPLE__
+#include <libkern/OSByteOrder.h>
+#define htobe64(x) OSSwapHostToBigInt64(x)
+#else
 #include <endian.h>
+#endif
+#include <assert.h>
+#include <cstdint>
 #include <functional>
 #include <immintrin.h>
-#include <iostream>
-#include <stdint.h>
-#include <vector>
 
 class BitArray;
 
@@ -86,7 +90,6 @@ public:
     uint8_t *b_ptr = &pb_b._byte;
 
     for (size_t i = 0; len != 0; len -= (7 * 8), i += 7) {
-
       uint64_t a_64t = (*(uint64_t *)&a_ptr[i]);
       a_64t = (a_64t >> pb_a._pos);
 
