@@ -9,8 +9,8 @@
 #include <endian.h>
 #endif
 #include <assert.h>
-#include <functional>
 #include <cstdint>
+#include <functional>
 
 class BitArray;
 
