@@ -47,3 +47,25 @@ jobs:
     - name: Run benchmarks
       working-directory: '${{runner.workspace}}/build'
       run: make bench
+
+  codecov:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v2
+
+    - name: Install lcov
+      run: sudo apt-get update -y && sudo apt-get install -y lcov
+
+    - name: Build BitArray
+      uses: lukka/run-cmake@v2
+      with:
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+        cmakeListsTxtPath: '${{github.workspace}}/CMakeLists.txt'
+        useVcpkgToolchainFile: false
+        buildDirectory: '${{runner.workspace}}/build'
+        cmakeAppendedArgs: '-DBUILD_TESTS=on -DENABLE_COVERAGE=on -DCMAKE_BUILD_TYPE=Debug'
+
+    - name: Run code coverage
+      working-directory: '${{runner.workspace}}/build'
+      run: make && make coverage
