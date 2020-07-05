@@ -113,8 +113,6 @@ public:
   DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) {
     uint64_t accum(0);
     SSE2Reg tmp;
-    // __m128i mask = _mm_set_epi8(255, 255, 255, 255, 255, 255, 255, 0, 255,
-    // 255, 255, 255, 255, 255, 255, 0);
 
     // Even with SIMD we still deal with 64-bit integers at a time (for now).
     // We load all we can (2 for SSE2, 4 for AVX etc.) of the first BitArray
@@ -144,20 +142,26 @@ public:
       // Shift so it is also aligned
       b_bitVec = _mm_srli_epi64(b_bitVec, pb_b._pos);
 
-      if (len < 2 * 7 * 8) {
-        // Get rid of the stuff at the end by shifting it away.
-        a_bitVec = _mm_srli_epi64(a_bitVec, (64 - len));
-        b_bitVec = _mm_srli_epi64(b_bitVec, (64 - len));
-
-        // Bitwise and what is left.
-        a_bitVec = _mm_and_si128(a_bitVec, b_bitVec);
-        _mm_storeu_si128((__m128i *)&tmp, a_bitVec);
-        accum += (_mm_popcnt_u64(tmp.lower64) + _mm_popcnt_u64(tmp.upper64));
-        break;
-      }
-
       // bit wise and them
       a_bitVec = _mm_and_si128(a_bitVec, b_bitVec);
+
+      if (len < 2 * 7 * 8) {
+        if (len >= 7*8) {
+          // Left shift by 8 to drop extra crud
+          a_bitVec = _mm_slli_epi64(a_bitVec, 8);
+
+          _mm_storeu_si128 ((__m128i *)&tmp, a_bitVec);
+          accum += _mm_popcnt_u64(tmp.lower64);
+
+          a_bitVec = _mm_slli_epi64(a_bitVec, (2*56 - len));
+          _mm_storeu_si128 ((__m128i *)&tmp, a_bitVec);
+          accum += _mm_popcnt_u64(tmp.upper64);
+        } else {
+          a_bitVec = _mm_slli_epi64(a_bitVec, (64 - len));
+          _mm_storeu_si128 ((__m128i *)&tmp, a_bitVec);
+          accum += _mm_popcnt_u64(tmp.lower64);
+        }
+      }
 
       // Pull out the bits for all but the last byte.
       a_bitVec = _mm_slli_epi64(a_bitVec, 8);
