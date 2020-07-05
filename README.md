@@ -44,7 +44,7 @@ git clone https://github.com/sayguh/BitArray.git BitArray
 ```
 mkdir -p build
 cd build
-cmake ../
+cmake -DBUILD_TESTS=on -DBUILD_BENCHMARKS=on ../
 ```
 
 ### 🔬 Test
