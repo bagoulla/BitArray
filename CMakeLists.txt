@@ -5,6 +5,8 @@ option(BUILD_TESTS "Build test executable" OFF)
 option(BUILD_BENCHMARKS "Benchmark BitArray" OFF)
 option(ENABLE_COVERAGE "Enable code coverage" OFF)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
 if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to 'Release' as no build type was specified")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the build type (Debug/Release)" FORCE)
@@ -22,7 +24,7 @@ if (ENABLE_COVERAGE AND NOT CMAKE_CONFIGURATION_TYPES)
     include(CodeCoverage)
 
     append_coverage_compiler_flags()
-    set(COVERAGE_EXCLUDES "/usr/include/\\*;${CMAKE_SOURCE_DIR}/tests/*;${CMAKE_SOURCE_DIR}/third_party/*")
+    set(COVERAGE_EXCLUDES "/usr/include/*;${CMAKE_SOURCE_DIR}/tests/*;${CMAKE_SOURCE_DIR}/third_party/*;${CMAKE_SOURCE_DIR}/benchmarks/*")
 
     setup_target_for_coverage(NAME coverage EXECUTABLE ctest DEPENDENCIES coverage)
 endif (ENABLE_COVERAGE AND NOT CMAKE_CONFIGURATION_TYPES)
