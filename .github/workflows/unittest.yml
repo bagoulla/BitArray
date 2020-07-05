@@ -1,4 +1,4 @@
-name: C/C++ CI
+name: Build & Test BitArray
 
 on:
   push:
@@ -8,12 +8,10 @@ on:
 
 jobs:
   build:
-
     runs-on: ${{ matrix.platform }}
     strategy:
       matrix:
         platform: [ubuntu-latest, macos-latest]
-
     steps:
     - name: Clone repository
       uses: actions/checkout@v2
@@ -30,3 +28,22 @@ jobs:
     - name: Run tests
       working-directory: '${{runner.workspace}}/build'
       run: ctest --output-on-failure
+
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Clone repository
+      uses: actions/checkout@v2
+      
+    - name: Build BitArray
+      uses: lukka/run-cmake@v2
+      with:
+        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+        cmakeListsTxtPath: '${{github.workspace}}/CMakeLists.txt'
+        useVcpkgToolchainFile: false
+        buildDirectory: '${{runner.workspace}}/build'
+        cmakeAppendedArgs: '-DBUILD_TESTS=on'
+
+    - name: Run benchmarks
+      working-directory: '${{runner.workspace}}/build'
+      run: make bench
