@@ -69,3 +69,7 @@ jobs:
     - name: Run code coverage
       working-directory: '${{runner.workspace}}/build'
       run: make && make coverage
+
+    - uses: codecov/codecov-action@v1
+      with:
+        file: '${{runner.workspace}}/build/coverage.info'
