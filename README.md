@@ -4,6 +4,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](.github/CONTRIBUTING.md#pull-requests)
 ![C/C++ CI](https://github.com/sayguh/BitArray/workflows/C/C++%20CI/badge.svg)
+[![codecov](https://codecov.io/gh/sayguh/BitArray/branch/develop/graph/badge.svg?token=3QO0OXSUW6)](https://codecov.io/gh/sayguh/BitArray)
 
 Single header file implementation of a bit array.
 
