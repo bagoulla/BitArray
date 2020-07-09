@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <functional>
 #include <immintrin.h>
+#include <iostream>
 
 class BitArray;
 
@@ -123,7 +124,9 @@ public:
     char *p_packedBits_A = (char *)&pb_a._byte;
     char *p_packedBits_B = (char *)&pb_b._byte;
 
-    for (size_t i = 0; len != 0; len -= 2 * (7 * 8), i += 14) {
+    // We move forward by 112 bytes each time b/c it's 2 sets of 7 bytes. 
+    size_t i(0);
+    for (; len < 112; len -= 112, i += 14) {
       // We deal with 8 bytes at a time but we drop the last byte, so we need
       // the SSE2 register to have first 8 bytes, Plus 1 byte of overlap.
       tmp.lower64 = *(uint64_t *)&p_packedBits_A[i];
@@ -145,30 +148,36 @@ public:
       // bit wise and them
       a_bitVec = _mm_and_si128(a_bitVec, b_bitVec);
 
-      if (len < 2 * 7 * 8) {
-        if (len >= 7*8) {
-          // Left shift by 8 to drop extra crud
-          a_bitVec = _mm_slli_epi64(a_bitVec, 8);
-
-          _mm_storeu_si128 ((__m128i *)&tmp, a_bitVec);
-          accum += _mm_popcnt_u64(tmp.lower64);
-
-          a_bitVec = _mm_slli_epi64(a_bitVec, (2*56 - len));
-          _mm_storeu_si128 ((__m128i *)&tmp, a_bitVec);
-          accum += _mm_popcnt_u64(tmp.upper64);
-        } else {
-          a_bitVec = _mm_slli_epi64(a_bitVec, (64 - len));
-          _mm_storeu_si128 ((__m128i *)&tmp, a_bitVec);
-          accum += _mm_popcnt_u64(tmp.lower64);
-        }
-      }
-
       // Pull out the bits for all but the last byte.
       a_bitVec = _mm_slli_epi64(a_bitVec, 8);
       _mm_storeu_si128((__m128i *)&tmp, a_bitVec);
       // _mm_maskmoveu_si128 (a_bitVec, mask, (char*)&tmp); // TODO: I cant get
       // this to work, is it faster than shifts and store?
       accum += _mm_popcnt_u64(tmp.lower64) + _mm_popcnt_u64(tmp.upper64);
+    }
+
+    uint64_t first_seven_mask = 0x00FFFFFFFFFFFFFF;
+
+    uint8_t *a_ptr = &pb_a._byte;
+    uint8_t *b_ptr = &pb_b._byte;
+    
+    // Now we just have to take care of the last, potentially 112 bits.
+    // This is just like how we do the non-SSE case.
+    for (; len != 0; len -= (7 * 8), i += 7) {
+      uint64_t a_64t = (*(uint64_t *)&a_ptr[i]);
+      a_64t = (a_64t >> pb_a._pos);
+
+      uint64_t b_64t = (*(uint64_t *)&b_ptr[i]);
+      b_64t = (b_64t >> pb_b._pos);
+
+      if (len < 7 * 8) {
+        a_64t = (a_64t << (64 - len));
+        b_64t = (b_64t << (64 - len));
+        accum += _mm_popcnt_u64(a_64t & b_64t);
+        break;
+      }
+
+      accum += _mm_popcnt_u64(first_seven_mask & a_64t & b_64t);
     }
     return accum;
   }
