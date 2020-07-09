@@ -72,4 +72,5 @@ jobs:
 
     - uses: codecov/codecov-action@v1
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         file: '${{runner.workspace}}/build/coverage.info'
