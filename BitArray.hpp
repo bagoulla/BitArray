@@ -13,6 +13,8 @@
 #include <functional>
 #include <immintrin.h>
 #include <iostream>
+#include "SIMDHelper.hpp"
+#include <bitset>
 
 class BitArray;
 
@@ -76,6 +78,7 @@ public:
     return ProxyBit(_data[i / 8], (i & 7));
   }
 
+
   /**
    * Performs a dot product on a range of two ProxyBits.
    * Since the two ProxyBits could be offset we need to
@@ -110,11 +113,69 @@ public:
     return accum;
   }
 
+  __attribute__((target("sse2", "popcnt")))
+  static void print_128(__m128i m) {
+    SSE2Reg tmp;
+    _mm_storeu_si128((__m128i *)&tmp, m);
+
+    std::cout << std::bitset<64>(tmp.lower64) << " " << std::bitset<64>(tmp.upper64) << std::endl;
+  }
+
   __attribute__((target("sse2", "popcnt"))) static uint64_t
   DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) {
     uint64_t accum(0);
-    SSE2Reg tmp;
+    char *p_packedBits_A = (char *)&pb_a._byte;
+    char *p_packedBits_B = (char *)&pb_b._byte;
+    // std::cout << "Len is: " << len << std::endl;
+    size_t i(0);
+    for (; len >= 120; len -= 120, i += 15) {
+      __m128i a_bitVec = _mm_loadu_si128((__m128i const *)&p_packedBits_A[i]);
+      // std::cout << "A: ";
+      // print_128(a_bitVec);
+      a_bitVec = xm_shr(a_bitVec, pb_a._pos);
+      // std::cout << "A aligned: ";
+      // print_128(a_bitVec);
 
+      __m128i b_bitVec = _mm_loadu_si128((__m128i const *)&p_packedBits_B[i]);
+      // std::cout << "B: ";
+      // print_128(b_bitVec);
+      b_bitVec = xm_shr(b_bitVec, pb_b._pos);
+      // std::cout << "B aligned: ";
+      // print_128(b_bitVec);
+
+      a_bitVec = _mm_and_si128(a_bitVec, b_bitVec);
+      // std::cout << "Anded: ";
+      // print_128(a_bitVec);
+      a_bitVec = _mm_slli_si128(a_bitVec, 1);
+      // std::cout << "Shift out lower 8: ";
+      // print_128(a_bitVec);
+      accum += popcnt128(a_bitVec);
+      // std::cout << "\n\n" << std::endl;
+    }
+    
+    // Now we just have to take care of the last, potentially 120 bits.
+    // This is just like how we do the non-SSE case.
+    uint64_t first_seven_mask = 0x00FFFFFFFFFFFFFF;
+
+    for (; len != 0; len -= (7 * 8), i += 7) {
+      uint64_t a_64t = (*(uint64_t *)&p_packedBits_A[i]);
+      a_64t = (a_64t >> pb_a._pos);
+
+      uint64_t b_64t = (*(uint64_t *)&p_packedBits_B[i]);
+      b_64t = (b_64t >> pb_b._pos);
+
+      if (len < 7 * 8) {
+        a_64t = (a_64t << (64 - len));
+        b_64t = (b_64t << (64 - len));
+        accum += _mm_popcnt_u64(a_64t & b_64t);
+        break;
+      }
+
+      accum += _mm_popcnt_u64(first_seven_mask & a_64t & b_64t);
+    }
+    return accum;
+
+/**
     // Even with SIMD we still deal with 64-bit integers at a time (for now).
     // We load all we can (2 for SSE2, 4 for AVX etc.) of the first BitArray
     // into the register then bit shift left to align it with the proxy bit in
@@ -180,6 +241,7 @@ public:
       accum += _mm_popcnt_u64(first_seven_mask & a_64t & b_64t);
     }
     return accum;
+    */
   }
 
   __attribute__((target("default"))) static uint64_t

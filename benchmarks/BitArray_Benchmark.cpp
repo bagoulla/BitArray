@@ -9,25 +9,22 @@ using namespace std::chrono;
 PICOBENCH_SUITE("Load BitArray vs Bool Vector");
 
 static void load_bool_vector(picobench::state &s) {
-  size_t size(1024 * 1024 * 100), start_a(17), start_b(3);
-  std::vector<bool> boolArray1(size), boolArray2(size);
-  BitArray testArray1(size);
-  srand(7);
+  size_t n(1024 * 1024 * 100);
+  std::vector<bool> boolArray1(n);
   for (auto _ : s) {
-    for (size_t i = 0; i < testArray1.size(); ++i) {
-      boolArray1[i] = rand() % 2;
+    for (size_t i = 0; i < boolArray1.size(); ++i) {
+      boolArray1[i] = 1;
     }
   }
 }
 PICOBENCH(load_bool_vector);
 
 static void load_bitarray(picobench::state &s) {
-  size_t size(1024 * 1024 * 100);
-  BitArray testArray1(size), testArray2(size);
-  srand(7);
+  size_t n(1024 * 1024 * 100);
+  BitArray testArray1(n);
   for (auto _ : s) {
     for (size_t i = 0; i < testArray1.size(); ++i) {
-      testArray1[i] = rand() % 2;
+      testArray1[i] = 1;
     }
   }
 }
@@ -36,7 +33,7 @@ PICOBENCH(load_bitarray);
 PICOBENCH_SUITE("Dot-product BitArray vs bool vector");
 
 static void dotprod_bool_vector(picobench::state &s) {
-  size_t size(1024 * 1024 * 100), start_a(17), start_b(3),
+  size_t size(100*1024 * 1024 * 100), start_a(17), start_b(3),
       num(size - start_a - start_b);
   std::vector<bool> boolArray1(size), boolArray2(size);
   BitArray testArray1(size);
@@ -57,7 +54,7 @@ static void dotprod_bool_vector(picobench::state &s) {
 PICOBENCH(dotprod_bool_vector);
 
 static void dotprod_bitarray(picobench::state &s) {
-  size_t size(1024 * 1024 * 100), start_a(17), start_b(3),
+  size_t size(100*1024 * 1024 * 100), start_a(17), start_b(3),
       num(size - start_a - start_b);
   BitArray testArray1(size), testArray2(size);
   srand(7);
