@@ -126,35 +126,35 @@ public:
 
     // We move forward by 112 bytes each time b/c it's 2 sets of 7 bytes. 
     size_t i(0);
-    for (; len < 112; len -= 112, i += 14) {
-      // We deal with 8 bytes at a time but we drop the last byte, so we need
-      // the SSE2 register to have first 8 bytes, Plus 1 byte of overlap.
-      tmp.lower64 = *(uint64_t *)&p_packedBits_A[i];
-      tmp.upper64 = *(uint64_t *)&p_packedBits_A[i + 7];
-      // Things look good here.
-      __m128i a_bitVec = _mm_loadu_si128((__m128i const *)&tmp);
+     for (; len > 112; len -= 112, i += 14) {
+       // We deal with 8 bytes at a time but we drop the last byte, so we need
+       // the SSE2 register to have first 8 bytes, Plus 1 byte of overlap.
+       tmp.lower64 = *(uint64_t *)&p_packedBits_A[i];
+       tmp.upper64 = *(uint64_t *)&p_packedBits_A[i + 7];
+       // Things look good here.
+       __m128i a_bitVec = _mm_loadu_si128((__m128i const *)&tmp);
 
-      // Shift both left so it is aligned to zero position
-      a_bitVec = _mm_srli_epi64(a_bitVec, pb_a._pos);
+       // Shift both left so it is aligned to zero position
+       a_bitVec = _mm_srli_epi64(a_bitVec, pb_a._pos);
 
-      // Load the next
-      tmp.lower64 = *(uint64_t *)&p_packedBits_B[i];
-      tmp.upper64 = *(uint64_t *)&p_packedBits_B[i + 7];
-      __m128i b_bitVec = _mm_loadu_si128((__m128i const *)&tmp);
+       // Load the next
+       tmp.lower64 = *(uint64_t *)&p_packedBits_B[i];
+       tmp.upper64 = *(uint64_t *)&p_packedBits_B[i + 7];
+       __m128i b_bitVec = _mm_loadu_si128((__m128i const *)&tmp);
 
-      // Shift so it is also aligned
-      b_bitVec = _mm_srli_epi64(b_bitVec, pb_b._pos);
+       // Shift so it is also aligned
+       b_bitVec = _mm_srli_epi64(b_bitVec, pb_b._pos);
 
-      // bit wise and them
-      a_bitVec = _mm_and_si128(a_bitVec, b_bitVec);
+       // bit wise and them
+       a_bitVec = _mm_and_si128(a_bitVec, b_bitVec);
 
-      // Pull out the bits for all but the last byte.
-      a_bitVec = _mm_slli_epi64(a_bitVec, 8);
-      _mm_storeu_si128((__m128i *)&tmp, a_bitVec);
-      // _mm_maskmoveu_si128 (a_bitVec, mask, (char*)&tmp); // TODO: I cant get
-      // this to work, is it faster than shifts and store?
-      accum += _mm_popcnt_u64(tmp.lower64) + _mm_popcnt_u64(tmp.upper64);
-    }
+       // Pull out the bits for all but the last byte.
+       a_bitVec = _mm_slli_epi64(a_bitVec, 8);
+       _mm_storeu_si128((__m128i *)&tmp, a_bitVec);
+       // _mm_maskmoveu_si128 (a_bitVec, mask, (char*)&tmp); // TODO: I cant get
+       // this to work, is it faster than shifts and store?
+       accum += _mm_popcnt_u64(tmp.lower64) + _mm_popcnt_u64(tmp.upper64);
+     }
 
     uint64_t first_seven_mask = 0x00FFFFFFFFFFFFFF;
 
