@@ -34,9 +34,7 @@ public:
   /**
    * Sets the ProxyBit given a bool
    */
-  void operator=(bool b) const {
-    _byte = b ? _byte | (1 << _pos) : _byte & ~(1 << _pos);
-  }
+  void operator=(bool b) const { _byte = b ? _byte | (1 << _pos) : _byte & ~(1 << _pos); }
 
 private:
   ProxyBit(uint8_t &byte, size_t pos) : _byte(byte), _pos(pos){};
@@ -46,9 +44,7 @@ private:
 
 class BitArray {
 public:
-  BitArray(size_t len)
-      : _size(len), _data(_size / 8 + (1 + 7)) {
-  } // Very lazy, extra 7 bytes of zeros.
+  BitArray(size_t len) : _size(len), _data(_size / 8 + (1 + 7)) {} // Very lazy, extra 7 bytes of zeros.
   BitArray() : _size(0), _data(0) {}
   size_t size() { return _size; };
 
@@ -73,9 +69,7 @@ public:
    * Since the two ProxyBits could be offset we need to
    * align them and do the given operator followed by the sum.
    */
-  template <class Func>
-  static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b,
-                          size_t len, Func func) {
+  template <class Func> static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len, Func func) {
     uint64_t accum(0);
     uint64_t first_seven_mask = 0x00FFFFFFFFFFFFFF;
 
@@ -102,10 +96,7 @@ public:
     return accum;
   }
 
-  static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b,
-                          size_t len) {
-    return DotProd(pb_a, pb_b, len, std::bit_and<uint64_t>());
-  }
+  static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) { return DotProd(pb_a, pb_b, len, std::bit_and<uint64_t>()); }
 
 private:
   size_t _size;
