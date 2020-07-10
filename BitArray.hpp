@@ -36,9 +36,7 @@ public:
   /**
    * Sets the ProxyBit given a bool
    */
-  void operator=(bool b) const {
-    _byte = b ? _byte | (1 << _pos) : _byte & ~(1 << _pos);
-  }
+  void operator=(bool b) const { _byte = b ? _byte | (1 << _pos) : _byte & ~(1 << _pos); }
 
 private:
   ProxyBit(uint8_t &byte, size_t pos) : _byte(byte), _pos(pos){};
@@ -54,9 +52,7 @@ class BitArray {
   };
 
 public:
-  BitArray(size_t len)
-      : _size(len), _data(_size / 8 + (1 + 7)) {
-  } // Very lazy, extra 7 bytes of zeros.
+  BitArray(size_t len) : _size(len), _data(_size / 8 + (1 + 7)) {} // Very lazy, extra 7 bytes of zeros.
   BitArray() : _size(0), _data(0) {}
   size_t size() { return _size; };
 
@@ -81,9 +77,7 @@ public:
    * Since the two ProxyBits could be offset we need to
    * align them and do the given operator followed by the sum.
    */
-  template <class Func>
-  static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b,
-                          size_t len, Func func) {
+  template <class Func> static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len, Func func) {
     uint64_t accum(0);
     uint64_t first_seven_mask = 0x00FFFFFFFFFFFFFF;
 
@@ -110,8 +104,7 @@ public:
     return accum;
   }
 
-  __attribute__((target("sse2", "popcnt"))) static uint64_t
-  DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) {
+  __attribute__((target("sse2", "popcnt"))) static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) {
     uint64_t accum(0);
     SSE2Reg tmp;
 
@@ -124,43 +117,43 @@ public:
     char *p_packedBits_A = (char *)&pb_a._byte;
     char *p_packedBits_B = (char *)&pb_b._byte;
 
-    // We move forward by 112 bytes each time b/c it's 2 sets of 7 bytes. 
+    // We move forward by 112 bytes each time b/c it's 2 sets of 7 bytes.
     size_t i(0);
-     for (; len > 112; len -= 112, i += 14) {
-       // We deal with 8 bytes at a time but we drop the last byte, so we need
-       // the SSE2 register to have first 8 bytes, Plus 1 byte of overlap.
-       tmp.lower64 = *(uint64_t *)&p_packedBits_A[i];
-       tmp.upper64 = *(uint64_t *)&p_packedBits_A[i + 7];
-       // Things look good here.
-       __m128i a_bitVec = _mm_loadu_si128((__m128i const *)&tmp);
+    for (; len > 112; len -= 112, i += 14) {
+      // We deal with 8 bytes at a time but we drop the last byte, so we need
+      // the SSE2 register to have first 8 bytes, Plus 1 byte of overlap.
+      tmp.lower64 = *(uint64_t *)&p_packedBits_A[i];
+      tmp.upper64 = *(uint64_t *)&p_packedBits_A[i + 7];
+      // Things look good here.
+      __m128i a_bitVec = _mm_loadu_si128((__m128i const *)&tmp);
 
-       // Shift both left so it is aligned to zero position
-       a_bitVec = _mm_srli_epi64(a_bitVec, pb_a._pos);
+      // Shift both left so it is aligned to zero position
+      a_bitVec = _mm_srli_epi64(a_bitVec, pb_a._pos);
 
-       // Load the next
-       tmp.lower64 = *(uint64_t *)&p_packedBits_B[i];
-       tmp.upper64 = *(uint64_t *)&p_packedBits_B[i + 7];
-       __m128i b_bitVec = _mm_loadu_si128((__m128i const *)&tmp);
+      // Load the next
+      tmp.lower64 = *(uint64_t *)&p_packedBits_B[i];
+      tmp.upper64 = *(uint64_t *)&p_packedBits_B[i + 7];
+      __m128i b_bitVec = _mm_loadu_si128((__m128i const *)&tmp);
 
-       // Shift so it is also aligned
-       b_bitVec = _mm_srli_epi64(b_bitVec, pb_b._pos);
+      // Shift so it is also aligned
+      b_bitVec = _mm_srli_epi64(b_bitVec, pb_b._pos);
 
-       // bit wise and them
-       a_bitVec = _mm_and_si128(a_bitVec, b_bitVec);
+      // bit wise and them
+      a_bitVec = _mm_and_si128(a_bitVec, b_bitVec);
 
-       // Pull out the bits for all but the last byte.
-       a_bitVec = _mm_slli_epi64(a_bitVec, 8);
-       _mm_storeu_si128((__m128i *)&tmp, a_bitVec);
-       // _mm_maskmoveu_si128 (a_bitVec, mask, (char*)&tmp); // TODO: I cant get
-       // this to work, is it faster than shifts and store?
-       accum += _mm_popcnt_u64(tmp.lower64) + _mm_popcnt_u64(tmp.upper64);
-     }
+      // Pull out the bits for all but the last byte.
+      a_bitVec = _mm_slli_epi64(a_bitVec, 8);
+      _mm_storeu_si128((__m128i *)&tmp, a_bitVec);
+      // _mm_maskmoveu_si128 (a_bitVec, mask, (char*)&tmp); // TODO: I cant get
+      // this to work, is it faster than shifts and store?
+      accum += _mm_popcnt_u64(tmp.lower64) + _mm_popcnt_u64(tmp.upper64);
+    }
 
     uint64_t first_seven_mask = 0x00FFFFFFFFFFFFFF;
 
     uint8_t *a_ptr = &pb_a._byte;
     uint8_t *b_ptr = &pb_b._byte;
-    
+
     // Now we just have to take care of the last, potentially 112 bits.
     // This is just like how we do the non-SSE case.
     for (; len != 0; len -= (7 * 8), i += 7) {
@@ -182,8 +175,7 @@ public:
     return accum;
   }
 
-  __attribute__((target("default"))) static uint64_t
-  DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) {
+  __attribute__((target("default"))) static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) {
     return DotProd(pb_a, pb_b, len, std::bit_and<uint64_t>());
   }
 
