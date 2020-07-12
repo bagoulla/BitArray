@@ -201,7 +201,7 @@ public:
   // TODO: Get these to be const
   __attribute__((target("default"))) 
   static void Convolve(BitArray &taps, BitArray &bits, BitArray &result) {
-    if (result.size() < taps.size() + bits.size() - 1)) {
+    if (result.size() < (taps.size() + bits.size() - 1)) {
       throw std::runtime_error("Results of the convolution must be at least large enough to hold the result (taps size + data size - 1)");
     }
     if (taps.size() > 32) { // TODO: Remove this restriction in the future.
@@ -210,14 +210,12 @@ public:
 
     uint64_t tapsReg = *(uint64_t*) &taps[0]._byte;
     uint32_t *p_bits32 = (uint32_t*) &bits[0]._byte;
-    uint64_t bitsReg = uint64_t(p_bits32[0]) + (uint64_t(p_bits32[1]) << 32);
-    p_bits32 += 2;
+    uint64_t bitsReg = (uint64_t(p_bits32[0]) << (taps.size() - 1));
+    ++p_bits32;
 
-    size_t ii(0);
-    // size_t passSize(64 - taps.size());
-    // for (len = bits.size(); len > 32;) {
-    while (ii < (bits.size()-32)) {
-      for (size_t i = 0; i < 32; ++i, bitsReg >>= 1) {
+    size_t ii(0), i(1);
+    while (ii < (bits.size()-31)) {
+      for (; i < 32; ++i, bitsReg >>= 1) {
         std::cout << "Taps: "; debugPrint(tapsReg); std::cout << std::endl;
         std::cout << "bits: "; debugPrint(bitsReg); std::cout << std::endl;
         std::cout << "ii: " << ii << " bits len: " << bits.size() << " taps size: " << taps.size() << std::endl;
@@ -225,15 +223,15 @@ public:
         std::cout << "Result: " << result[ii - 1] << std::endl;
       }
       std::cout << "Trying to load in the next 32 bits" << std::endl;
-      bitsReg |= (uint64_t(*(p_bits32++)) << 32);
+      bitsReg |= (uint64_t(*(p_bits32++)) << taps.size());
+      i=0;
       std::cout << "bits: "; debugPrint(bitsReg); std::cout << std::endl;
-      // passSize = 32;
     }
 
-    for (size_t i = 0; bits.size() != ii; ++i, bitsReg >>= 1) {
+    for (size_t i = 0; (bits.size()+taps.size()-1) != ii; ++i, bitsReg >>= 1) {
         std::cout << "Taps: "; debugPrint(tapsReg); std::cout << std::endl;
         std::cout << "bits: "; debugPrint(bitsReg); std::cout << std::endl;
-        std::cout << "ii: " << ii << " bits len: " << bits.size() << " taps size: " << taps.size() << std::endl;
+        std::cout << "ii: " << ii << "res: " << result.size() << " bits len: " << bits.size() << " taps size: " << taps.size() << std::endl;
       result[ii++] = countBits(tapsReg & bitsReg) & 0x01; // mod 2
     }
     std::cout << "ii is: " << ii << " expected is one more than: " << (bits.size() + taps.size()) << std::endl;
