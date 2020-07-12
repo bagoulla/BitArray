@@ -41,3 +41,21 @@ TEST_CASE("Testing DotProd") {
 
   CHECK(my_value == expected_value);
 }
+
+TEST_CASE("Testing Correlate") {
+  BitArray taps("1011011101111011111");
+  BitArray input("1001100111001111001111100111111001111111001111111110011111111110010011001110011110011111001111110011111110011111111100111111111100100110011100111100111110011111100111111100111111111001111111111001001100111001111001111100111111001111111001111111110011111111110010011001110011110011111001111110011111110011111111100111111111100100110011100111100111110011111100111111100111111111001111111111001");
+  // BitArray input("111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111");
+  BitArray expectedOutput(taps.size() + input.size() - 1);
+  BitArray actualOutput(taps.size() + input.size() - 1);
+  for (size_t i = 0; i < input.size(); ++i)
+    expectedOutput[i] = (BitArray::DotProd(taps[0], input[i], taps.size()) % 2);
+
+  BitArray::Convolve(taps, input, actualOutput);
+
+  for (size_t i = 0; i < input.size(); ++i) {
+    std::cout << "Checking: " << i << std::endl;
+    CHECK(expectedOutput[i] == actualOutput[i+taps.size()-1]);
+  }
+
+}
