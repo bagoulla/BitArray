@@ -25,6 +25,11 @@ inline int64_t countBits (const uint64_t &a) {  return _mm_popcnt_u64(a); }
 __attribute__((target("default")))
 inline int64_t countBits (const uint64_t &a) { return __builtin_popcountll(a); }
 
+#include <bitset>
+void debugPrint(uint64_t n) {
+    std::cout << std::bitset<100>(n);
+  }
+
 /**
  * A class to act as a proxy to a bit in an array.
  * Note that the _pos variable is:
@@ -57,17 +62,28 @@ private:
 class BitArray {
 
 public:
+// TODO: Forward declare everything;
+
   BitArray(size_t len) : _size(len), _data(_size / 8 + (1 + 7)) {} // Very lazy, extra 7 bytes of zeros.
   BitArray() : _size(0), _data(0) {}
-  size_t size() { return _size; };
-
   /**
-   * This will return the value stored in a given index.
-   */
-  bool operator[](size_t i) const {
-    assert(i < _size);
-    return _data[i / 8] & (1 << (i & 7));
+  * Create a bit Array as such BitArray("10101000 10101110")
+  */
+  BitArray(const std::string s): _size(0) {
+    for (size_t i = 0; i < s.size(); ++i)
+      if (s[i] == '1' or s[i] == '0')
+        ++_size;
+    _data.resize((_size+1)/8);
+    size_t idx(0);
+    for (size_t i = 0; i < s.size(); ++i)
+      if (s[i] == '1' or s[i] == '0') {
+        if (s[i] == '1')
+          (*this)[idx] = 1;
+        ++idx;
+      }
   }
+  size_t size() const { return _size; };
+  uint8_t * data() {return _data.data(); }
 
   /**
    * This will return a proxy to the bit so that users can set it.
@@ -82,7 +98,8 @@ public:
    * Since the two ProxyBits could be offset we need to
    * align them and do the given operator followed by the sum.
    */
-  template <class Func> static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len, Func func) {
+  __attribute__((target("default"))) 
+  static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) {
     uint64_t accum(0);
     uint64_t first_seven_mask = 0x00FFFFFFFFFFFFFF;
 
@@ -99,16 +116,15 @@ public:
       if (len < 7 * 8) {
         a_64t = (a_64t << (64 - len));
         b_64t = (b_64t << (64 - len));
-        accum += countBits(func(a_64t, b_64t));
+        accum += countBits(a_64t & b_64t);
         break;
       }
 
-      accum += countBits(first_seven_mask & func(a_64t, b_64t));
+      accum += countBits(first_seven_mask & a_64t & b_64t);
     }
 
     return accum;
   }
-
   
   __attribute__((target("sse2"))) 
   static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) {
@@ -182,9 +198,45 @@ public:
     return accum;
   }
 
+  // TODO: Get these to be const
   __attribute__((target("default"))) 
-  static uint64_t DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t len) {
-    return DotProd(pb_a, pb_b, len, std::bit_and<uint64_t>());
+  static void Convolve(BitArray &taps, BitArray &bits, BitArray &result) {
+    if (result.size() < taps.size() + bits.size() - 1)) {
+      throw std::runtime_error("Results of the convolution must be at least large enough to hold the result (taps size + data size - 1)");
+    }
+    if (taps.size() > 32) { // TODO: Remove this restriction in the future.
+      throw std::runtime_error("Taps greater than 32 bits are currently not supported.");
+    }
+
+    uint64_t tapsReg = *(uint64_t*) &taps[0]._byte;
+    uint32_t *p_bits32 = (uint32_t*) &bits[0]._byte;
+    uint64_t bitsReg = uint64_t(p_bits32[0]) + (uint64_t(p_bits32[1]) << 32);
+    p_bits32 += 2;
+
+    size_t ii(0);
+    // size_t passSize(64 - taps.size());
+    // for (len = bits.size(); len > 32;) {
+    while (ii < (bits.size()-32)) {
+      for (size_t i = 0; i < 32; ++i, bitsReg >>= 1) {
+        std::cout << "Taps: "; debugPrint(tapsReg); std::cout << std::endl;
+        std::cout << "bits: "; debugPrint(bitsReg); std::cout << std::endl;
+        std::cout << "ii: " << ii << " bits len: " << bits.size() << " taps size: " << taps.size() << std::endl;
+        result[ii++] = countBits(tapsReg & bitsReg) & 0x01; // mod 2
+        std::cout << "Result: " << result[ii - 1] << std::endl;
+      }
+      std::cout << "Trying to load in the next 32 bits" << std::endl;
+      bitsReg |= (uint64_t(*(p_bits32++)) << 32);
+      std::cout << "bits: "; debugPrint(bitsReg); std::cout << std::endl;
+      // passSize = 32;
+    }
+
+    for (size_t i = 0; bits.size() != ii; ++i, bitsReg >>= 1) {
+        std::cout << "Taps: "; debugPrint(tapsReg); std::cout << std::endl;
+        std::cout << "bits: "; debugPrint(bitsReg); std::cout << std::endl;
+        std::cout << "ii: " << ii << " bits len: " << bits.size() << " taps size: " << taps.size() << std::endl;
+      result[ii++] = countBits(tapsReg & bitsReg) & 0x01; // mod 2
+    }
+    std::cout << "ii is: " << ii << " expected is one more than: " << (bits.size() + taps.size()) << std::endl;
   }
 
 private:
