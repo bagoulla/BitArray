@@ -42,20 +42,98 @@ TEST_CASE("Testing DotProd") {
   CHECK(my_value == expected_value);
 }
 
-TEST_CASE("Testing Correlate") {
+TEST_CASE("Testing Correlate with flush") {
   BitArray taps("1011011101111011111");
-  BitArray input("1001100111001111001111100111111001111111001111111110011111111110010011001110011110011111001111110011111110011111111100111111111100100110011100111100111110011111100111111100111111111001111111111001001100111001111001111100111111001111111001111111110011111111110010011001110011110011111001111110011111110011111111100111111111100100110011100111100111110011111100111111100111111111001111111111001");
-  // BitArray input("111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111");
+
+  BitArray input(1024*1024);
+  for (size_t i = 0; i < input.size(); ++i)
+    input[i] = rand() %2;
+
   BitArray expectedOutput(taps.size() + input.size() - 1);
   BitArray actualOutput(taps.size() + input.size() - 1);
-  for (size_t i = 0; i < input.size(); ++i)
-    expectedOutput[i] = (BitArray::DotProd(taps[0], input[i], taps.size()) % 2);
+  auto t1 = std::chrono::high_resolution_clock::now();
+
+  for (size_t i = 0; i < expectedOutput.size(); ++i) {
+    size_t inputIdx = ( (i < taps.size()) ? 0 : i - taps.size() + 1);
+    size_t tapsIdx =  ( (i < taps.size()) ? (taps.size() - i - 1): 0);
+    size_t len =      ( (i < taps.size()) ? (i + 1) : taps.size());
+    expectedOutput[i] = BitArray::DotProd(taps[tapsIdx], input[inputIdx], len) % 2;
+  }
+  auto t2 = std::chrono::high_resolution_clock::now();
 
   BitArray::Convolve(taps, input, actualOutput);
+  auto t3 = std::chrono::high_resolution_clock::now();
 
-  for (size_t i = 0; i < input.size(); ++i) {
-    std::cout << "Checking: " << i << std::endl;
-    CHECK(expectedOutput[i] == actualOutput[i+taps.size()-1]);
+  auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+  auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>( t3 - t2 ).count();
+
+  std::cout << "Using DotProd took: " << float(duration1)/1e6 << "(s) new convovle took: " << float(duration2)/1e6 << "(s)" << std::endl;
+
+  for (size_t i = 0; i < expectedOutput.size(); ++i) {
+    CHECK(expectedOutput[i] == actualOutput[i]);
+  }
+}
+
+TEST_CASE("Testing Correlate with no flush") {
+  BitArray taps("1011011101111011111");
+
+  BitArray input(1024*1024);
+  for (size_t i = 0; i < input.size(); ++i)
+    input[i] = rand() %2;
+
+  BitArray expectedOutput(input.size() );
+  BitArray actualOutput(input.size() );
+  auto t1 = std::chrono::high_resolution_clock::now();
+
+  for (size_t i = 0; i < expectedOutput.size(); ++i) {
+    size_t inputIdx = ( (i < taps.size()) ? 0 : i - taps.size() + 1);
+    size_t tapsIdx =  ( (i < taps.size()) ? (taps.size() - i - 1): 0);
+    size_t len =      ( (i < taps.size()) ? (i + 1) : taps.size());
+    expectedOutput[i] = BitArray::DotProd(taps[tapsIdx], input[inputIdx], len) % 2;
+  }
+  auto t2 = std::chrono::high_resolution_clock::now();
+
+  BitArray::Convolve(taps, input, actualOutput, false);
+  auto t3 = std::chrono::high_resolution_clock::now();
+
+  auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+  auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>( t3 - t2 ).count();
+
+  std::cout << "Using DotProd took: " << float(duration1)/1e6 << "(s) new convovle took: " << float(duration2)/1e6 << "(s)" << std::endl;
+
+  for (size_t i = 0; i < expectedOutput.size(); ++i) {
+    CHECK(expectedOutput[i] == actualOutput[i]);
+  }
+}
+
+TEST_CASE("Testing Continuous Correlate") {
+  BitArray taps("1011011101111011111");
+
+  BitArray continuousInput(1024*1024);
+  BitArray   partialInput1(1024*1024/2);
+  BitArray   partialInput2(1024*1024/2);
+
+  for (size_t i = 0; i < continuousInput.size(); ++i)
+    continuousInput[i] = rand() % 2;
+  
+  for (size_t i = 0; i < partialInput1.size(); ++i) {
+    partialInput1[i] = continuousInput[i];
+    partialInput2[i] = continuousInput[512+i];
   }
 
+  BitArray expectedOutput(taps.size() + continuousInput.size() - 1);
+  BitArray actualOutput1(partialInput1.size());
+  BitArray actualOutput2(partialInput2.size() + taps.size() - 1);
+
+  BitArray::Convolve(taps, continuousInput, expectedOutput);
+  uint32_t state(0);
+  BitArray::Convolve(taps, partialInput1, actualOutput1, false, &state);
+  BitArray::Convolve(taps, partialInput2, actualOutput2, true, &state);
+
+  for (size_t i = 0; i < partialInput1.size(); ++i)
+    CHECK(expectedOutput[i] == actualOutput1[i]);
+
+  for (size_t i = 0; i < partialInput2.size(); ++i) {
+    CHECK(expectedOutput[512+i] == actualOutput2[i]);
+  }
 }

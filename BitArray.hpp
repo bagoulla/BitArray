@@ -52,6 +52,13 @@ public:
    */
   void operator=(bool b) const { _byte = b ? _byte | (1 << _pos) : _byte & ~(1 << _pos); }
 
+  /**
+  * Assigning a proxybit to another proxybit is just a passthrough to the bool to assignment.
+  */
+  ProxyBit& operator=(const ProxyBit& other) {
+    *this = bool(other);
+    return *this;
+  }
 private:
   ProxyBit(uint8_t &byte, size_t pos) : _byte(byte), _pos(pos){};
   uint8_t &_byte;
@@ -83,6 +90,11 @@ public:
       }
   }
   size_t size() const { return _size; };
+  
+  /**
+  * Pass through to the vector _data both const and non-const versions
+  */
+  const uint8_t * data() const {return _data.data(); }
   uint8_t * data() {return _data.data(); }
 
   /**
@@ -198,43 +210,42 @@ public:
     return accum;
   }
 
-  // TODO: Get these to be const
+  /**
+  * Performs a convolution operation on bits using taps and stores it into result. If flush is true
+  * zeros will be pushed into the taps at the end resulting in a total output size of taps.size() + 
+  * bits.size() - 1. The memory of the registers can optionally be initialized with the initial fill
+  * and the final fill will be returned in initialFill.
+  */
   __attribute__((target("default"))) 
-  static void Convolve(BitArray &taps, BitArray &bits, BitArray &result) {
-    if (result.size() < (taps.size() + bits.size() - 1)) {
-      throw std::runtime_error("Results of the convolution must be at least large enough to hold the result (taps size + data size - 1)");
-    }
-    if (taps.size() > 32) { // TODO: Remove this restriction in the future.
-      throw std::runtime_error("Taps greater than 32 bits are currently not supported.");
-    }
+  static void Convolve(const BitArray &taps, const BitArray &bits, BitArray &result, bool flush=true, uint32_t * pInitialFill=NULL) {
+    size_t resultSize = flush ? (taps.size() + bits.size() - 1) : (bits.size());
+    uint32_t initialFill = pInitialFill ? *pInitialFill : 0;
 
-    uint64_t tapsReg = *(uint64_t*) &taps[0]._byte;
-    uint32_t *p_bits32 = (uint32_t*) &bits[0]._byte;
-    uint64_t bitsReg = (uint64_t(p_bits32[0]) << (taps.size() - 1));
+    if (result.size() < (resultSize))
+      throw std::runtime_error("Results of the convolution must be at least large enough to hold the result");
+
+    if (taps.size() > 32) // TODO: Remove this restriction in the future.
+      throw std::runtime_error("Taps greater than 32 bits are currently not supported.");
+
+    uint64_t  tapsReg  = *(uint64_t*) taps.data(); // Never changes or are shifted, these are the taps.
+    uint32_t *p_bits32 =  (uint32_t *) bits.data(); // Points to the next 32-bit chunk to copy into the bitsReg
+    uint64_t  bitsReg  =  (uint64_t(p_bits32[0]) << (taps.size() - 1)) | initialFill; // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
     ++p_bits32;
 
     size_t ii(0), i(1);
-    while (ii < (bits.size()-31)) {
-      for (; i < 32; ++i, bitsReg >>= 1) {
-        std::cout << "Taps: "; debugPrint(tapsReg); std::cout << std::endl;
-        std::cout << "bits: "; debugPrint(bitsReg); std::cout << std::endl;
-        std::cout << "ii: " << ii << " bits len: " << bits.size() << " taps size: " << taps.size() << std::endl;
+    while (ii < (bits.size()-31)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the register.
+      for (; i < 32; ++i, bitsReg >>= 1) { // Shift the bits over, do the AND, then load more!
         result[ii++] = countBits(tapsReg & bitsReg) & 0x01; // mod 2
-        std::cout << "Result: " << result[ii - 1] << std::endl;
       }
-      std::cout << "Trying to load in the next 32 bits" << std::endl;
       bitsReg |= (uint64_t(*(p_bits32++)) << taps.size());
       i=0;
-      std::cout << "bits: "; debugPrint(bitsReg); std::cout << std::endl;
     }
 
-    for (size_t i = 0; (bits.size()+taps.size()-1) != ii; ++i, bitsReg >>= 1) {
-        std::cout << "Taps: "; debugPrint(tapsReg); std::cout << std::endl;
-        std::cout << "bits: "; debugPrint(bitsReg); std::cout << std::endl;
-        std::cout << "ii: " << ii << "res: " << result.size() << " bits len: " << bits.size() << " taps size: " << taps.size() << std::endl;
+    for (size_t i = 0; resultSize != ii; ++i, bitsReg >>= 1)
       result[ii++] = countBits(tapsReg & bitsReg) & 0x01; // mod 2
-    }
-    std::cout << "ii is: " << ii << " expected is one more than: " << (bits.size() + taps.size()) << std::endl;
+
+    if (pInitialFill)
+      *pInitialFill = (uint32_t) bitsReg;
   }
 
 private:
