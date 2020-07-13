@@ -13,6 +13,7 @@
 #include <functional>
 #include <immintrin.h>
 #include <stdexcept>
+#include <string>
 class BitArray;
 
 /**
