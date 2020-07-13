@@ -13,13 +13,14 @@
 #include <functional>
 #include <immintrin.h>
 #include <stdexcept>
+#include <string>
 class BitArray;
 
 /**
 * Helper functions to count bits for both hardware enabled and non-hardware enabled platforms.
 * Not sure why but the mm popcount is only in gcc >= 4.9
 */
-#if defined (__GNUC__) && ! defined(__clang__)
+#if defined (__GNUC__) && !defined(__clang__)
 #  include <features.h>
 #  if __GNUC_PREREQ(4,9)
 __attribute__((target("popcnt"))) 
