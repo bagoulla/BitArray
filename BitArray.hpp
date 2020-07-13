@@ -12,32 +12,28 @@
 #include <stdint.h>
 #include <functional>
 #include <immintrin.h>
-#include <iostream>
 #include <stdexcept>
-
 class BitArray;
-
 
 /**
 * Helper functions to count bits for both hardware enabled and non-hardware enabled platforms.
 * Not sure why but the mm popcount is only in gcc >= 4.9
 */
-#if defined(__GNUC__) && (__GNUC___ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9))
+#ifdef __GNUC__
+#  include <features.h>
+#  if __GNUC_PREREQ(4,9)
 __attribute__((target("popcnt"))) 
 inline int64_t countBits (const uint64_t &a) {  
   return _mm_popcnt_u64(a); 
 }
-#else
-#warning Potentially not using the CPU instructin popcount, either due to old version of GCC, not using GCC, or lack of hardare support.
+#  else
+#  warning Potentially not using the CPU instruction popcount, either due to old version of GCC, not using GCC, or lack of hardware support.
+#  endif
 #endif
+
 
 __attribute__((target("default")))
 inline int64_t countBits (const uint64_t &a) { return __builtin_popcountll(a); }
-
-#include <bitset>
-void debugPrint(uint64_t n) {
-    std::cout << std::bitset<100>(n);
-  }
 
 /**
  * A class to act as a proxy to a bit in an array.

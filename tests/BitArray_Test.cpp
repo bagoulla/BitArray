@@ -113,12 +113,13 @@ TEST_CASE("Testing Continuous Correlate") {
   BitArray   partialInput1(1024*1024/2);
   BitArray   partialInput2(1024*1024/2);
 
+  srand(7);
   for (size_t i = 0; i < continuousInput.size(); ++i)
     continuousInput[i] = rand() % 2;
   
   for (size_t i = 0; i < partialInput1.size(); ++i) {
     partialInput1[i] = continuousInput[i];
-    partialInput2[i] = continuousInput[512+i];
+    partialInput2[i] = continuousInput[partialInput1.size()+i];
   }
 
   BitArray expectedOutput(taps.size() + continuousInput.size() - 1);
@@ -134,6 +135,6 @@ TEST_CASE("Testing Continuous Correlate") {
     CHECK(expectedOutput[i] == actualOutput1[i]);
 
   for (size_t i = 0; i < partialInput2.size(); ++i) {
-    CHECK(expectedOutput[512+i] == actualOutput2[i]);
+    CHECK(expectedOutput[partialInput1.size()+i] == actualOutput2[i]);
   }
 }
