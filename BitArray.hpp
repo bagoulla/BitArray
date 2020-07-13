@@ -9,19 +9,28 @@
 #include <endian.h>
 #endif
 #include <assert.h>
-#include <cstdint>
+#include <stdint.h>
 #include <functional>
 #include <immintrin.h>
 #include <iostream>
+#include <stdexcept>
 
 class BitArray;
 
 
 /**
 * Helper functions to count bits for both hardware enabled and non-hardware enabled platforms.
+* Not sure why but the mm popcount is only in gcc >= 4.9
 */
+#if defined(__GNUC__) && (__GNUC___ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9))
 __attribute__((target("popcnt"))) 
-inline int64_t countBits (const uint64_t &a) {  return _mm_popcnt_u64(a); }
+inline int64_t countBits (const uint64_t &a) {  
+  return _mm_popcnt_u64(a); 
+}
+#else
+#warning Potentially not using the CPU instructin popcount, either due to old version of GCC, not using GCC, or lack of hardare support.
+#endif
+
 __attribute__((target("default")))
 inline int64_t countBits (const uint64_t &a) { return __builtin_popcountll(a); }
 
