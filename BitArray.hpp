@@ -14,6 +14,8 @@
 #include <immintrin.h>
 #include <stdexcept>
 #include <string>
+#include <bitset>
+#include <iostream>
 class BitArray;
 
 /**
@@ -284,20 +286,22 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
 
   uint64_t  tapsReg  = *(uint64_t*) taps.data(); // Never changes or are shifted, these are the taps.
   uint32_t *p_bits32 =  (uint32_t *) bits.data(); // Points to the next 32-bit chunk to copy into the bitsReg
-  uint64_t  bitsReg  =  (uint64_t(p_bits32[0]) << (taps.size() - 1)) | initialFill; // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
+  uint64_t  bitsReg  =  (uint64_t(p_bits32[0]) << (taps.size())) | initialFill; // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
   ++p_bits32;
 
-  size_t ii(0), i(1);
+  size_t ii(0);
   while (ii < (bits.size()-31)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the register.
-    for (; i < 32; ++i, bitsReg >>= 1) { // Shift the bits over, do the AND, then load more!
+    for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
+      bitsReg >>= 1;
       result[ii++] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
     }
     bitsReg |= (uint64_t(*(p_bits32++)) << taps.size());
-    i=0;
   }
 
-  for (size_t i = 0; resultSize != ii; ++i, bitsReg >>= 1)
-    result[ii++] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+  for (; resultSize != ii; ++ii) {
+    bitsReg >>= 1;
+    result[ii] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+  }
 
   if (pInitialFill)
     *pInitialFill = (uint32_t) bitsReg;
