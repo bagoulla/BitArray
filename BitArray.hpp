@@ -2,20 +2,12 @@
 #define BITARRAY_H
 
 #include <vector>
-#ifdef __APPLE__
-#include <libkern/OSByteOrder.h>
-#define htobe64(x) OSSwapHostToBigInt64(x)
-#else
-#include <endian.h>
-#endif
 #include <assert.h>
 #include <stdint.h>
-#include <functional>
 #include <immintrin.h>
 #include <stdexcept>
 #include <string>
-#include <bitset>
-#include <iostream>
+
 class BitArray;
 
 /**
@@ -106,12 +98,6 @@ private:
   size_t _size; // Size in bits
   std::vector<uint8_t> _data; // The underlying container holding the bits, TODO: make aligned and perhaps support a constructor that takes a pointer to data.
 };
-
-void sse2print(const __m128i &x) {
-    uint64_t tmp[2];
-    _mm_storeu_si128((__m128i *)&tmp, x);
-    std::cout << std::bitset<64>(tmp[1]) <<  " " << std::bitset<64>(tmp[0]) << std::endl;
-}
 
 // Private constructor
 ProxyBit::ProxyBit(uint8_t &byte, size_t pos) : _byte(byte), _pos(pos) {
@@ -298,7 +284,6 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
 
   size_t ii(0);
   while (ii < (bits.size()-31)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the register.
-    std::cout << "Bits: " << std::bitset<64>(bitsReg) << std::endl;
     for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
       bitsReg >>= 1;
       result[ii++] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
@@ -317,7 +302,6 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
 
 __attribute__((target("sse2"))) 
 void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &result, bool flush, uint32_t * pInitialFill) {
-  std::cout << "SSE2 Convolve" << std::endl;
   uint64_t tapsRegTmp[2], bitsRegTmp[2], resTmp[2];
 
   size_t resultSize = flush ? (taps.size() + bits.size() - 1) : (bits.size());
@@ -357,13 +341,9 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
     bitsReg128 = _mm_loadu_si128((__m128i const *)&bitsRegTmp);
   }
 
-  // std::cout << "The last bitsReg128" << std::endl;
-  // sse2print(bitsReg128);
   // Now we just do the non-SSE version
   uint64_t  tapsReg  = *(uint64_t*) taps.data(); // Never changes or are shifted, these are the taps.
   uint64_t  bitsReg  =  bitsRegTmp[0];
-  // std::cout << "The new bitsReg: " << std::endl;
-  // std::cout << std::bitset<128>(bitsReg) << std::endl;
   while (ii < (bits.size()-31)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the register.
     for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
       bitsReg >>= 1;
