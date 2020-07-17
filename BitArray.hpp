@@ -100,11 +100,18 @@ public:
   */
   __attribute__((target("default"))) 
   static void Convolve(const BitArray &taps, const BitArray &bits, BitArray &result, bool flush=true, uint32_t * pInitialFill=NULL);
-
+  __attribute__((target("sse2"))) 
+  static void Convolve(const BitArray &taps, const BitArray &bits, BitArray &result, bool flush=true, uint32_t * pInitialFill=NULL);
 private:
   size_t _size; // Size in bits
   std::vector<uint8_t> _data; // The underlying container holding the bits, TODO: make aligned and perhaps support a constructor that takes a pointer to data.
 };
+
+void sse2print(const __m128i &x) {
+    uint64_t tmp[2];
+    _mm_storeu_si128((__m128i *)&tmp, x);
+    std::cout << std::bitset<64>(tmp[1]) <<  " " << std::bitset<64>(tmp[0]) << std::endl;
+}
 
 // Private constructor
 ProxyBit::ProxyBit(uint8_t &byte, size_t pos) : _byte(byte), _pos(pos) {
@@ -219,7 +226,7 @@ uint64_t BitArray::DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t le
     // Things look good here.
     __m128i a_bitVec = _mm_loadu_si128((__m128i const *)&tmp);
 
-    // Shift both left so it is aligned to zero position
+    // Shift both right so it is aligned to zero position
     a_bitVec = _mm_srli_epi64(a_bitVec, pb_a._pos);
 
     // Load the next
@@ -291,6 +298,7 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
 
   size_t ii(0);
   while (ii < (bits.size()-31)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the register.
+    std::cout << "Bits: " << std::bitset<64>(bitsReg) << std::endl;
     for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
       bitsReg >>= 1;
       result[ii++] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
@@ -305,6 +313,73 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
 
   if (pInitialFill)
     *pInitialFill = (uint32_t) bitsReg;
+}
+
+__attribute__((target("sse2"))) 
+void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &result, bool flush, uint32_t * pInitialFill) {
+  std::cout << "SSE2 Convolve" << std::endl;
+  uint64_t tapsRegTmp[2], bitsRegTmp[2], resTmp[2];
+
+  size_t resultSize = flush ? (taps.size() + bits.size() - 1) : (bits.size());
+  uint32_t initialFill = pInitialFill ? *pInitialFill : 0;
+
+  if (result.size() < (resultSize))
+    throw std::runtime_error("Results of the convolution must be at least large enough to hold the result");
+
+  if (taps.size() > 32) // TODO: Remove this restriction in the future.
+    throw std::runtime_error("Taps greater than 32 bits are currently not supported.");
+
+  tapsRegTmp[0]  = *(uint64_t*) taps.data(); // Never changes or are shifted, these are the taps.
+  tapsRegTmp[1]  = *(uint64_t*) taps.data();
+  uint32_t *p_bits32 =  (uint32_t *) bits.data(); // Points to the next 32-bit chunk to copy into the bitsReg
+  bitsRegTmp[0]  =  (uint64_t(p_bits32[0]) << (taps.size())) | initialFill; // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
+  bitsRegTmp[1]  =  (uint64_t(p_bits32[1]) << (taps.size())) | (p_bits32[0] >> (32 - taps.size()));
+  p_bits32+=2;
+
+  __m128i tapsReg128 = _mm_loadu_si128((__m128i const *)&tapsRegTmp);
+  __m128i bitsReg128 = _mm_loadu_si128((__m128i const *)&bitsRegTmp);
+
+  size_t ii(0);
+  while (ii < (bits.size()-63)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the registers.
+    for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
+      bitsReg128 = _mm_srli_epi64(bitsReg128, 1);
+      // sse2print(tapsReg);
+      // sse2print(bitsReg);
+      __m128i res = _mm_and_si128(tapsReg128, bitsReg128);
+      _mm_storeu_si128((__m128i *)&resTmp, res);
+      result[ii+i] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
+      result[ii+i+32] = __builtin_popcountll(resTmp[1]) & 0x01;
+    }
+    ii+=64;
+    bitsRegTmp[0]  =  (uint64_t(p_bits32[0]) << (taps.size())) | (p_bits32[-1] >> (32 - taps.size())); // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
+    bitsRegTmp[1]  =  (uint64_t(p_bits32[1]) << (taps.size())) | (p_bits32[0] >> (32 - taps.size()));
+    p_bits32+=2;
+    bitsReg128 = _mm_loadu_si128((__m128i const *)&bitsRegTmp);
+  }
+
+  // std::cout << "The last bitsReg128" << std::endl;
+  // sse2print(bitsReg128);
+  // Now we just do the non-SSE version
+  uint64_t  tapsReg  = *(uint64_t*) taps.data(); // Never changes or are shifted, these are the taps.
+  uint64_t  bitsReg  =  bitsRegTmp[0];
+  // std::cout << "The new bitsReg: " << std::endl;
+  // std::cout << std::bitset<128>(bitsReg) << std::endl;
+  while (ii < (bits.size()-31)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the register.
+    for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
+      bitsReg >>= 1;
+      result[ii++] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+    }
+    bitsReg |= (uint64_t(*(p_bits32++)) << taps.size());
+  }
+
+  for (; resultSize != ii; ++ii) {
+    bitsReg >>= 1;
+    result[ii] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+  }
+
+  if (pInitialFill)
+    *pInitialFill = (uint32_t) bitsReg;
+
 }
 
 #endif

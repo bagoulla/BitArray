@@ -44,8 +44,9 @@ TEST_CASE("Testing DotProd") {
 
 TEST_CASE("Testing Correlate with flush") {
   BitArray taps("1011011101111011111");
+  BitArray input(1024*1024+13);
 
-  BitArray input(1024*1024);
+  srand(7);
   for (size_t i = 0; i < input.size(); ++i)
     input[i] = rand() %2;
 
@@ -77,7 +78,7 @@ TEST_CASE("Testing Correlate with flush") {
 TEST_CASE("Testing Correlate with no flush") {
   BitArray taps("1011011101111011111");
 
-  BitArray input(1024*1024);
+  BitArray input(1024*1024+17);
   for (size_t i = 0; i < input.size(); ++i)
     input[i] = rand() %2;
 
