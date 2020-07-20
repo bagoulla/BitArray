@@ -11,6 +11,18 @@
 class BitArray;
 
 /**
+* Helper methods to count bits with both hardware and non-hardware versions.
+*/
+__attribute__((target("popcnt"))) 
+inline long long countBits(long long x) {
+  return _mm_popcnt_u64(x);
+}
+__attribute__((target("default"))) 
+inline long long countBits(long long x) {
+  return __builtin_popcountll(x);
+}
+
+/**
  * A class to act as a proxy to a bit in an array.
  * Used to set, and get bits as well as pass a reference
  * to a bit for DotProd
@@ -180,11 +192,11 @@ uint64_t BitArray::DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t le
     if (len < 7 * 8) {
       a_64t = (a_64t << (64 - len));
       b_64t = (b_64t << (64 - len));
-      accum += __builtin_popcountll(a_64t & b_64t);
+      accum += countBits(a_64t & b_64t);
       break;
     }
 
-    accum += __builtin_popcountll(first_seven_mask & a_64t & b_64t);
+    accum += countBits(first_seven_mask & a_64t & b_64t);
   }
 
   return accum;
@@ -233,7 +245,7 @@ uint64_t BitArray::DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t le
     _mm_storeu_si128((__m128i *)&tmp, a_bitVec);
     // _mm_maskmoveu_si128 (a_bitVec, mask, (char*)&tmp); // TODO: I cant get
     // this to work, is it faster than shifts and store?
-    accum += __builtin_popcountll(tmp[1]) + __builtin_popcountll(tmp[0]);
+    accum += countBits(tmp[1]) + countBits(tmp[0]);
   }
 
   uint64_t first_seven_mask = 0x00FFFFFFFFFFFFFF;
@@ -253,11 +265,11 @@ uint64_t BitArray::DotProd(const ProxyBit &pb_a, const ProxyBit &pb_b, size_t le
     if (len < 7 * 8) {
       a_64t = (a_64t << (64 - len));
       b_64t = (b_64t << (64 - len));
-      accum += __builtin_popcountll(a_64t & b_64t);
+      accum += countBits(a_64t & b_64t);
       break;
     }
 
-    accum += __builtin_popcountll(first_seven_mask & a_64t & b_64t);
+    accum += countBits(first_seven_mask & a_64t & b_64t);
   }
   return accum;
 }
@@ -288,14 +300,14 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
   while (ii < (bits.size()-31)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the register.
     for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
       bitsReg >>= 1;
-      result[ii++] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+      result[ii++] = countBits(tapsReg & bitsReg) & 0x01; // mod 2
     }
     bitsReg |= (uint64_t(*(p_bits32++)) << taps.size());
   }
 
   for (; resultSize != ii; ++ii) {
     bitsReg >>= 1;
-    result[ii] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+    result[ii] = countBits(tapsReg & bitsReg) & 0x01; // mod 2
   }
 
   if (pInitialFill)
@@ -333,8 +345,8 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
     // print128(bitsReg128);
     __m128i res = _mm_and_si128(tapsReg128, bitsReg128);
     _mm_storeu_si128((__m128i *)&resTmp, res);
-    result[i   ] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
-    result[i+32] = __builtin_popcountll(resTmp[1]) & 0x01;
+    result[i   ] = countBits(resTmp[0]) & 0x01; // mod 2
+    result[i+32] = countBits(resTmp[1]) & 0x01;
   }
 
   size_t ii(64);
@@ -346,8 +358,8 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
       bitsReg128 = _mm_srli_epi64(bitsReg128, 1);
       __m128i res = _mm_and_si128(tapsReg128, bitsReg128);
       _mm_storeu_si128((__m128i *)&resTmp, res);
-      result[ii+i   ] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
-      result[ii+i+32] = __builtin_popcountll(resTmp[1]) & 0x01;
+      result[ii+i   ] = countBits(resTmp[0]) & 0x01; // mod 2
+      result[ii+i+32] = countBits(resTmp[1]) & 0x01;
     }
   }
 
@@ -359,7 +371,7 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
     for (size_t i = 0; i < 32; ++i) {
       if ((ii+i) == resultSize) break;
       bitsReg >>= 1;
-      result[ii+i] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+      result[ii+i] = countBits(tapsReg & bitsReg) & 0x01; // mod 2
     }
   }
 
@@ -404,10 +416,10 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
     bitsReg256 = _mm256_srli_epi64(bitsReg256, 1);
     __m256i res = _mm256_and_si256(tapsReg256, bitsReg256);
     _mm256_storeu_si256((__m256i *)&resTmp, res);
-    result[i   ] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
-    result[i+32] = __builtin_popcountll(resTmp[1]) & 0x01;
-    result[i+64] = __builtin_popcountll(resTmp[2]) & 0x01;
-    result[i+96] = __builtin_popcountll(resTmp[3]) & 0x01;
+    result[i   ] = countBits(resTmp[0]) & 0x01; // mod 2
+    result[i+32] = countBits(resTmp[1]) & 0x01;
+    result[i+64] = countBits(resTmp[2]) & 0x01;
+    result[i+96] = countBits(resTmp[3]) & 0x01;
   }
 
   size_t ii(128);
@@ -422,10 +434,10 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
       bitsReg256 = _mm256_srli_epi64(bitsReg256, 1);
       __m256i res = _mm256_and_si256(tapsReg256, bitsReg256);
       _mm256_storeu_si256((__m256i *)&resTmp, res);
-      result[ii+i   ] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
-      result[ii+i+32] = __builtin_popcountll(resTmp[1]) & 0x01;
-      result[ii+i+64] = __builtin_popcountll(resTmp[2]) & 0x01;
-      result[ii+i+96] = __builtin_popcountll(resTmp[3]) & 0x01;
+      result[ii+i   ] = countBits(resTmp[0]) & 0x01; // mod 2
+      result[ii+i+32] = countBits(resTmp[1]) & 0x01;
+      result[ii+i+64] = countBits(resTmp[2]) & 0x01;
+      result[ii+i+96] = countBits(resTmp[3]) & 0x01;
     }
   }
 
@@ -437,7 +449,7 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
     for (size_t i = 0; i < 32; ++i) {
       if ((ii+i) == resultSize) break;
       bitsReg >>= 1;
-      result[ii+i] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+      result[ii+i] = countBits(tapsReg & bitsReg) & 0x01; // mod 2
     }
   }
 
