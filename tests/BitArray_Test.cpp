@@ -70,9 +70,12 @@ TEST_CASE("Testing Correlate with flush") {
 
   std::cout << "Using DotProd took: " << float(duration1)/1e6 << "(s) new convovle took: " << float(duration2)/1e6 << "(s)" << std::endl;
 
+  size_t errorCounter(0);
   for (size_t i = 0; i < expectedOutput.size(); ++i) {
-    CHECK(expectedOutput[i] == actualOutput[i]);
+    if (expectedOutput[i] != actualOutput[i])
+      errorCounter++;
   }
+  CHECK(errorCounter == 0);  
 }
 
 TEST_CASE("Testing Correlate with no flush") {

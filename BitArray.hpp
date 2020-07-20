@@ -94,6 +94,8 @@ public:
   static void Convolve(const BitArray &taps, const BitArray &bits, BitArray &result, bool flush=true, uint32_t * pInitialFill=NULL);
   __attribute__((target("sse2"))) 
   static void Convolve(const BitArray &taps, const BitArray &bits, BitArray &result, bool flush=true, uint32_t * pInitialFill=NULL);
+  __attribute__((target("avx2"))) 
+  static void Convolve(const BitArray &taps, const BitArray &bits, BitArray &result, bool flush=true, uint32_t * pInitialFill=NULL);
 private:
   size_t _size; // Size in bits
   std::vector<uint8_t> _data; // The underlying container holding the bits, TODO: make aligned and perhaps support a constructor that takes a pointer to data.
@@ -120,7 +122,7 @@ ProxyBit& ProxyBit::operator=(const ProxyBit& other) {
 }
 
 // Very lazy, extra 7 bytes of zeros so I do not have to do extra work at the tail end.
-BitArray::BitArray(size_t len) : _size(len), _data(_size / 8 + (1 + 7)) {
+BitArray::BitArray(size_t len) : _size(len), _data((_size-1)/8 + 1 + 7) {
 }
 
 BitArray::BitArray() : _size(0), _data(0) {
@@ -130,7 +132,7 @@ BitArray::BitArray(const std::string s): _size(0) {
   for (size_t i = 0; i < s.size(); ++i)
     if (s[i] == '1' or s[i] == '0')
       ++_size;
-  _data.resize((_size+1)/8);
+  _data.resize((_size-1)/8 + 1 + 7);
   size_t idx(0);
   for (size_t i = 0; i < s.size(); ++i)
     if (s[i] == '1' or s[i] == '0') {
@@ -315,51 +317,132 @@ void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &re
 
   tapsRegTmp[0]  = *(uint64_t*) taps.data(); // Never changes or are shifted, these are the taps.
   tapsRegTmp[1]  = *(uint64_t*) taps.data();
+  __m128i tapsReg128 = _mm_loadu_si128((__m128i const *)&tapsRegTmp);
+
   uint32_t *p_bits32 =  (uint32_t *) bits.data(); // Points to the next 32-bit chunk to copy into the bitsReg
+  
+  // We do the first 64 bits seperate so that we can handle the initial fill
   bitsRegTmp[0]  =  (uint64_t(p_bits32[0]) << (taps.size())) | initialFill; // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
   bitsRegTmp[1]  =  (uint64_t(p_bits32[1]) << (taps.size())) | (p_bits32[0] >> (32 - taps.size()));
-  p_bits32+=2;
-
-  __m128i tapsReg128 = _mm_loadu_si128((__m128i const *)&tapsRegTmp);
   __m128i bitsReg128 = _mm_loadu_si128((__m128i const *)&bitsRegTmp);
+  p_bits32+=2; // Move along the pointer
 
-  size_t ii(0);
-  while (ii < (bits.size()-63)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the registers.
+  // TODO: Check to make sure that the results should be >= 64 bits.
+  for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND
+    bitsReg128 = _mm_srli_epi64(bitsReg128, 1);
+    // print128(bitsReg128);
+    __m128i res = _mm_and_si128(tapsReg128, bitsReg128);
+    _mm_storeu_si128((__m128i *)&resTmp, res);
+    result[i   ] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
+    result[i+32] = __builtin_popcountll(resTmp[1]) & 0x01;
+  }
+
+  size_t ii(64);
+  for (; ii < bits.size() - 63; ii += 64, p_bits32+=2) { // Work through all the bits until we cannot load anymore 32-bit chunks into the registers.
+    bitsRegTmp[0]  =  (uint64_t(p_bits32[0]) << (taps.size())) | (p_bits32[-1] >> (32 - taps.size())); // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
+    bitsRegTmp[1]  =  (uint64_t(p_bits32[1]) << (taps.size())) | (p_bits32[ 0] >> (32 - taps.size()));
+    bitsReg128 = _mm_loadu_si128((__m128i const *)&bitsRegTmp);
     for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
       bitsReg128 = _mm_srli_epi64(bitsReg128, 1);
-      // sse2print(tapsReg);
-      // sse2print(bitsReg);
       __m128i res = _mm_and_si128(tapsReg128, bitsReg128);
       _mm_storeu_si128((__m128i *)&resTmp, res);
-      result[ii+i] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
+      result[ii+i   ] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
       result[ii+i+32] = __builtin_popcountll(resTmp[1]) & 0x01;
     }
-    ii+=64;
-    bitsRegTmp[0]  =  (uint64_t(p_bits32[0]) << (taps.size())) | (p_bits32[-1] >> (32 - taps.size())); // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
-    bitsRegTmp[1]  =  (uint64_t(p_bits32[1]) << (taps.size())) | (p_bits32[0] >> (32 - taps.size()));
-    p_bits32+=2;
-    bitsReg128 = _mm_loadu_si128((__m128i const *)&bitsRegTmp);
   }
 
   // Now we just do the non-SSE version
   uint64_t  tapsReg  = *(uint64_t*) taps.data(); // Never changes or are shifted, these are the taps.
-  uint64_t  bitsReg  =  bitsRegTmp[0];
-  while (ii < (bits.size()-31)) { // Work through all the bits until we cannot load anymore 32-bit chunks into the register.
-    for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
+  uint64_t bitsReg = (uint64_t(p_bits32[0]) << (taps.size())) | (p_bits32[-1] >> (32 - taps.size()));
+  for (; ii < resultSize; ii += 32, p_bits32++) {
+    bitsReg  =  (uint64_t(p_bits32[0]) << (taps.size())) | (p_bits32[-1] >> (32 - taps.size()));
+    for (size_t i = 0; i < 32; ++i) {
+      if ((ii+i) == resultSize) break;
       bitsReg >>= 1;
-      result[ii++] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+      result[ii+i] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
     }
-    bitsReg |= (uint64_t(*(p_bits32++)) << taps.size());
   }
 
-  for (; resultSize != ii; ++ii) {
-    bitsReg >>= 1;
-    result[ii] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
-  }
-
-  if (pInitialFill)
+  if (pInitialFill) {
     *pInitialFill = (uint32_t) bitsReg;
-
+  }
 }
 
+__attribute__((target("avx2"))) 
+void BitArray::Convolve(const BitArray &taps, const BitArray &bits, BitArray &result, bool flush, uint32_t * pInitialFill) {
+  uint64_t tapsRegTmp[4], bitsRegTmp[4], resTmp[4];
+
+  size_t resultSize = flush ? (taps.size() + bits.size() - 1) : (bits.size());
+  uint32_t initialFill = pInitialFill ? *pInitialFill : 0;
+
+  if (result.size() < (resultSize))
+    throw std::runtime_error("Results of the convolution must be at least large enough to hold the result");
+
+  if (taps.size() > 32) // TODO: Remove this restriction in the future.
+    throw std::runtime_error("Taps greater than 32 bits are currently not supported.");
+
+  tapsRegTmp[0]  = *(uint64_t*) taps.data(); // Never changes or are shifted, these are the taps.
+  tapsRegTmp[1]  = *(uint64_t*) taps.data();
+  tapsRegTmp[2]  = *(uint64_t*) taps.data();
+  tapsRegTmp[3]  = *(uint64_t*) taps.data();
+
+  __m256i tapsReg256 = _mm256_loadu_si256((__m256i const *)&tapsRegTmp);
+
+  uint32_t *p_bits32 =  (uint32_t *) bits.data(); // Points to the next 32-bit chunk to copy into the bitsReg
+  
+  // We do the first 64 bits seperate so that we can handle the initial fill
+  bitsRegTmp[0]  =  (uint64_t(p_bits32[0]) << (taps.size())) | initialFill; // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
+  bitsRegTmp[1]  =  (uint64_t(p_bits32[1]) << (taps.size())) | (p_bits32[0] >> (32 - taps.size()));
+  bitsRegTmp[2]  =  (uint64_t(p_bits32[2]) << (taps.size())) | (p_bits32[1] >> (32 - taps.size()));
+  bitsRegTmp[3]  =  (uint64_t(p_bits32[3]) << (taps.size())) | (p_bits32[2] >> (32 - taps.size()));
+
+  __m256i bitsReg256 = _mm256_loadu_si256((__m256i const *)&bitsRegTmp);
+  p_bits32+=4; // Move along the pointer
+
+  // TODO: Check to make sure that the results should be >= 64 bits.
+  for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND
+    bitsReg256 = _mm256_srli_epi64(bitsReg256, 1);
+    __m256i res = _mm256_and_si256(tapsReg256, bitsReg256);
+    _mm256_storeu_si256((__m256i *)&resTmp, res);
+    result[i   ] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
+    result[i+32] = __builtin_popcountll(resTmp[1]) & 0x01;
+    result[i+64] = __builtin_popcountll(resTmp[2]) & 0x01;
+    result[i+96] = __builtin_popcountll(resTmp[3]) & 0x01;
+  }
+
+  size_t ii(128);
+  for (; ii < bits.size() - 127; ii += 128, p_bits32+=4) { // Work through all the bits until we cannot load anymore 32-bit chunks into the registers.
+    bitsRegTmp[0]  =  (uint64_t(p_bits32[0]) << (taps.size())) | (p_bits32[-1] >> (32 - taps.size())); // Holds the current 64-bits from the input bits, is shifted down until there is room to hold more.
+    bitsRegTmp[1]  =  (uint64_t(p_bits32[1]) << (taps.size())) | (p_bits32[ 0] >> (32 - taps.size()));
+    bitsRegTmp[2]  =  (uint64_t(p_bits32[2]) << (taps.size())) | (p_bits32[ 1] >> (32 - taps.size()));
+    bitsRegTmp[3]  =  (uint64_t(p_bits32[3]) << (taps.size())) | (p_bits32[ 2] >> (32 - taps.size()));
+
+    bitsReg256 = _mm256_loadu_si256((__m256i const *)&bitsRegTmp);
+    for (size_t i = 0; i < 32; ++i) { // Shift the bits over, do the AND, then load more!
+      bitsReg256 = _mm256_srli_epi64(bitsReg256, 1);
+      __m256i res = _mm256_and_si256(tapsReg256, bitsReg256);
+      _mm256_storeu_si256((__m256i *)&resTmp, res);
+      result[ii+i   ] = __builtin_popcountll(resTmp[0]) & 0x01; // mod 2
+      result[ii+i+32] = __builtin_popcountll(resTmp[1]) & 0x01;
+      result[ii+i+64] = __builtin_popcountll(resTmp[2]) & 0x01;
+      result[ii+i+96] = __builtin_popcountll(resTmp[3]) & 0x01;
+    }
+  }
+
+  // Now we just do the non-SSE version
+  uint64_t  tapsReg  = *(uint64_t*) taps.data(); // Never changes or are shifted, these are the taps.
+  uint64_t bitsReg = (uint64_t(p_bits32[0]) << (taps.size())) | (p_bits32[-1] >> (32 - taps.size()));
+  for (; ii < resultSize; ii += 32, p_bits32++) {
+    bitsReg  =  (uint64_t(p_bits32[0]) << (taps.size())) | (p_bits32[-1] >> (32 - taps.size()));
+    for (size_t i = 0; i < 32; ++i) {
+      if ((ii+i) == resultSize) break;
+      bitsReg >>= 1;
+      result[ii+i] = __builtin_popcountll(tapsReg & bitsReg) & 0x01; // mod 2
+    }
+  }
+
+  if (pInitialFill) {
+    *pInitialFill = (uint32_t) bitsReg;
+  }
+}
 #endif
