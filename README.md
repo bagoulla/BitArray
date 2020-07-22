@@ -18,6 +18,8 @@ not flush the registers and can store/load the register's final/initial state.
   bool flush = true;
   BitArray taps("1011011101111011111");
   BitArray input(1024*1024);
+  BitArray actualOutput(taps.size() + input.size() - 1);
+
 
   for (size_t i = 0; i < input.size(); ++i)
     input[i] = rand() %2;
